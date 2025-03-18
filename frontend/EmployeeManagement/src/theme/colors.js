@@ -1,13 +1,13 @@
-// Theme colors based on MG Health Tech website
+// Theme colors based on MG Health Tech branding from the professional logo
 export const COLORS = {
-  // Primary colors
-  primary: '#00a19a', // Teal/blue-green primary color
-  primaryDark: '#008e88',
-  primaryLight: '#33b5af',
+  // Primary colors - using the blue from the logo
+  primary: '#0D47A1', // Deep blue from the MG Health Tech logo
+  primaryDark: '#083378',
+  primaryLight: '#3F6BB5',
   
-  // Secondary colors
-  secondary: '#2c3e50', // Dark blue/slate color
-  secondaryLight: '#34495e',
+  // Secondary colors - using the orange from the logo
+  secondary: '#FF5722', // Bright orange from the MG Health Tech logo
+  secondaryLight: '#FF8A65',
   
   // Background colors
   background: '#ffffff',

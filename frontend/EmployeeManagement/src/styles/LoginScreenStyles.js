@@ -26,6 +26,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logoImageContainer: {
+    marginBottom: 15,
+    padding: 5,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   companyName: {
     fontSize: 36,
     fontWeight: 'bold',

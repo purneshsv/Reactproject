@@ -18,17 +18,19 @@ import {
   Chip,
   Overlay,
 } from 'react-native-elements';
+import MGLogo from '../components/MGLogo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import {useFocusEffect} from '@react-navigation/native';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import * as Animatable from 'react-native-animatable';
 import COLORS from '../theme/colors';
-import Mailer from 'react-native-mail';
+
 import {Linking} from 'react-native';
 import styles from '../styles/HomeScreenStyles.js';
+import {authAxios, removeToken} from '../utils/AuthUtils';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 const HomeScreen = ({navigation}) => {
   const [employees, setEmployees] = useState([]);
@@ -40,15 +42,36 @@ const HomeScreen = ({navigation}) => {
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [showDepartmentFilter, setShowDepartmentFilter] = useState(false);
 
+  // Handle session expiration
+  const handleSessionExpired = async (message = 'Session Expired') => {
+    try {
+      // Clear token
+      await removeToken();
+      // Set session expired flag for App.js to detect
+      await AsyncStorage.setItem('sessionExpired', 'true');
+      // Show alert and navigate to login
+      Alert.alert('Session Expired', message, [
+        {text: 'OK', onPress: () => navigation.replace('Login')},
+      ]);
+    } catch (error) {
+      console.error('Error handling session expiration:', error);
+      // Fallback direct navigation
+      navigation.replace('Login');
+    }
+  };
+
   const fetchEmployees = async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
-      if (!token) throw new Error('No token found');
+      if (!token) {
+        // Handle missing token by redirecting to login
+        await handleSessionExpired('No token found');
+        return;
+      }
 
-      const response = await axios.get(`${API_URL}/employees`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      // Use our authAxios instance which handles token automatically
+      const response = await authAxios.get(`/employees`);
 
       const processedEmployees = response.data.map(emp => ({
         ...emp,
@@ -69,9 +92,13 @@ const HomeScreen = ({navigation}) => {
       setLoading(false);
     } catch (error) {
       setLoading(false);
-      Alert.alert('Session Expired', 'Please log in again', [
-        {text: 'OK', onPress: () => navigation.replace('Login')},
-      ]);
+      console.error('Error fetching employees:', error);
+      
+      if (error.response && error.response.status === 401) {
+        await handleSessionExpired('Your session has expired');
+      } else {
+        Alert.alert('Error', 'Failed to load employees. Please try again.');
+      }
     }
   };
 
@@ -81,84 +108,7 @@ const HomeScreen = ({navigation}) => {
     setRefreshing(false);
   }, []);
 
-  const sendEmailToEmployees = async () => {
-    if (!Mailer?.mail) {
-      Alert.alert(
-        'Email Not Available',
-        'The mail functionality is not available on this device. Please make sure you have an email account configured.',
-        [{text: 'OK', style: 'default'}],
-        {cancelable: true},
-      );
-      return;
-    }
 
-    try {
-      if (employees.length === 0) {
-        Alert.alert(
-          'No Recipients',
-          'There are no employees to send email to.',
-          [{text: 'OK', style: 'default'}],
-          {cancelable: true},
-        );
-        return;
-      }
-
-      const employeeEmails = employees.map(emp => emp.email).filter(Boolean);
-
-      if (employeeEmails.length === 0) {
-        Alert.alert(
-          'Invalid Email Addresses',
-          'No valid email addresses found for the employees.',
-          [{text: 'OK', style: 'default'}],
-          {cancelable: true},
-        );
-        return;
-      }
-
-      const mailOptions = {
-        subject: 'MG Tech - Company Update',
-        recipients: employeeEmails,
-        body: `Dear Team,
-
-We hope this email finds you well. This is an important update from MG Tech.
-
-Best regards,
-MG Tech Team`,
-        isHTML: false,
-      };
-
-      await new Promise((resolve, reject) => {
-        try {
-          Mailer.mail(mailOptions, (error, event) => {
-            if (error) {
-              reject(new Error('Failed to open mail client'));
-            } else {
-              resolve(event);
-            }
-          });
-        } catch (e) {
-          reject(e);
-        }
-      });
-    } catch (error) {
-      Alert.alert(
-        'Email Not Available',
-        'The mail app could not be opened. Please ensure you have an email account configured in your device settings.',
-        [
-          {
-            text: 'Open Settings',
-            onPress: () => Linking.openSettings(),
-            style: 'default',
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ],
-        {cancelable: true},
-      );
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -219,22 +169,27 @@ MG Tech Team`,
 
   const handleDelete = useCallback(async id => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) throw new Error('No token found');
-
+      // Optimistically update UI first
       setEmployees(prev => prev.filter(emp => emp.id !== id));
       setFilteredEmployees(prev => prev.filter(emp => emp.id !== id));
 
-      await axios.delete(`${API_URL}/employees/${id}`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
-
+      // Use authAxios which automatically includes the token
+      await authAxios.delete(`/employees/${id}`);
+      
+      // Refresh the list to ensure data consistency
       fetchEmployees();
     } catch (error) {
-      Alert.alert('Error', 'Failed to delete employee');
-      fetchEmployees();
+      console.error('Error deleting employee:', error.response?.data || error.message);
+      
+      if (error.response?.status === 401) {
+        await handleSessionExpired('Your session has expired');
+      } else {
+        Alert.alert('Error', 'Failed to delete employee: ' + (error.response?.data?.message || error.message));
+        // Refresh the list to ensure data consistency
+        fetchEmployees();
+      }
     }
-  }, []);
+  }, [fetchEmployees, handleSessionExpired]);
 
   const handleDepartmentSelect = department => {
     setSelectedDepartment(
@@ -297,22 +252,15 @@ MG Tech Team`,
           duration={1000}
           style={styles.header}>
           <View style={styles.titleContainer}>
-            <Text h4 style={styles.title}>
-              MG HEALTH TECH
-            </Text>
-            <Text style={styles.subtitle}>Employee Management System</Text>
-          </View>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.emailIconButton}
-              onPress={sendEmailToEmployees}>
-              <Icon name="email" type="material" color="#ffffff" size={22} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.logoutIconButton}
-              onPress={handleLogout}>
-              <Icon name="logout" type="material" color="#ffffff" size={22} />
-            </TouchableOpacity>
+            <MGLogo size="medium" />
+            <View style={styles.subtitleContainer}>
+              <Text style={styles.subtitle}>Employee Management System</Text>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}>
+                <Icon name="logout" type="material" color="#ffffff" size={18} />
+              </TouchableOpacity>
+            </View>
           </View>
         </Animatable.View>
 

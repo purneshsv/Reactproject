@@ -12,9 +12,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as Animatable from 'react-native-animatable';
 import COLORS from '../theme/colors';
+import {authAxios} from '../utils/AuthUtils';
 import styles from '../styles/EditEmployeeScreenStyles';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 const EditEmployeeScreen = ({route, navigation}) => {
   const {employee} = route.params;
@@ -25,6 +26,7 @@ const EditEmployeeScreen = ({route, navigation}) => {
     department: employee.department,
     phone: employee.phone || '',
     hire_date: employee.hire_date || '',
+    salary: employee.salary || '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,21 +54,27 @@ const EditEmployeeScreen = ({route, navigation}) => {
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) throw new Error('No token found');
-
-      await axios.put(`${API_URL}/employees/${employee.id}`, formData, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      // Format the salary as a number if it exists
+      const formattedData = {
+        ...formData,
+        salary: formData.salary ? parseFloat(formData.salary) : null,
+        hire_date: formData.hire_date || null
+      };
+      
+      console.log('Sending updated employee data:', formattedData);
+      
+      // Use authAxios which automatically includes the token
+      await authAxios.put(`/employees/${employee.id}`, formattedData);
 
       navigation.goBack();
     } catch (err) {
+      console.error('Error updating employee:', err.response?.data || err.message);
       if (err.response?.status === 401) {
         Alert.alert('Session Expired', 'Please log in again', [
           {text: 'OK', onPress: () => navigation.replace('Login')},
         ]);
       } else {
-        setError('Failed to update employee');
+        setError('Failed to update employee: ' + (err.response?.data?.message || err.message));
       }
     } finally {
       setLoading(false);
@@ -179,6 +187,23 @@ const EditEmployeeScreen = ({route, navigation}) => {
             leftIcon={
               <Icon
                 name="event"
+                type="material"
+                color={COLORS.primary}
+                size={20}
+              />
+            }
+            inputContainerStyle={styles.inputContainer}
+            inputStyle={styles.inputText}
+            placeholderTextColor={COLORS.textLight}
+          />
+          <Input
+            placeholder="Salary"
+            value={formData.salary}
+            onChangeText={value => updateField('salary', value)}
+            keyboardType="numeric"
+            leftIcon={
+              <Icon
+                name="attach-money"
                 type="material"
                 color={COLORS.primary}
                 size={20}

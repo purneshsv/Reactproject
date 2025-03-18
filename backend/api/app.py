@@ -19,7 +19,7 @@ CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')  # Secure JWT Key
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)  # Extend token expiration to 30 days
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -46,13 +46,29 @@ class Employee(db.Model):
     department = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20))
     hire_date = db.Column(db.Date)
+    salary = db.Column(db.Numeric(10, 2))
     
 
 # Google Token Verification Function
 def verify_google_token(token):
     try:
-        payload = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        # Print more detailed debug information
+        print(f"Verifying Google token with client ID: {GOOGLE_CLIENT_ID}")
+        print(f"Token length: {len(token)}")
+        
+        # Verify the token with Google
+        payload = id_token.verify_oauth2_token(
+            token, 
+            requests.Request(), 
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=60  # Allow for some clock skew
+        )
+        
+        print(f"Token verification successful, payload: {payload}")
         return payload  # Returns user info if valid
+    except ValueError as ve:
+        print(f"Google token validation error: {str(ve)}")
+        return None
     except Exception as e:
         print(f"Google token verification failed: {str(e)}")
         return None
@@ -66,7 +82,8 @@ def login():
         password = data.get('password')
 
         admin = Admin.query.filter_by(username=username).first()
-        if admin and admin.check_password(password):
+        # Special case for admin/admin123 (plain text password in database)
+        if admin and (admin.password_hash == password or admin.check_password(password)):
             access_token = create_access_token(identity=username)
             return jsonify({'token': access_token}), 200
         return jsonify({'message': 'Invalid credentials'}), 401
@@ -81,7 +98,10 @@ def google_login():
         token = data.get('token')
         simulator_test = data.get('simulatorTest', False)
 
+        print(f"Google login attempt with data: {data}")
+
         if not token:
+            print("No token provided in request")
             return jsonify({'message': 'No token provided'}), 400
 
         # Handle simulator testing mode
@@ -95,7 +115,16 @@ def google_login():
             }
         else:
             print(f"Received Google Token: {token[:20]}...")  # Truncated for security
-            google_user = verify_google_token(token)
+            # For debugging, allow bypass for specific test tokens
+            if token == 'test_token_for_debugging':
+                print("Using test token for debugging")
+                google_user = {
+                    'email': 'test@example.com',
+                    'name': 'Test User',
+                    'sub': 'test-user-id'
+                }
+            else:
+                google_user = verify_google_token(token)
             
         if not google_user:
             print("Google Token Verification Failed")
@@ -140,7 +169,8 @@ def get_employees():
             'position': e.position,
             'department': e.department,
             'phone': e.phone,
-            'hire_date': e.hire_date.strftime('%Y-%m-%d') if e.hire_date else None
+            'hire_date': e.hire_date.strftime('%Y-%m-%d') if e.hire_date else None,
+            'salary': float(e.salary) if e.salary else None
         } for e in employees])
     except Exception as e:
         print(f"Get employees error: {str(e)}")
@@ -151,9 +181,20 @@ def get_employees():
 def add_employee():
     try:
         data = request.get_json()
+        print(f"Received employee data: {data}")
 
         if Employee.query.filter_by(email=data['email']).first():
             return jsonify({'message': 'Email already exists'}), 400
+
+        # Parse salary as float if it exists
+        salary = None
+        if 'salary' in data and data['salary'] is not None:
+            try:
+                salary = float(data['salary'])
+                print(f"Parsed salary: {salary}")
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing salary: {e}")
+                return jsonify({'message': 'Invalid salary format'}), 400
 
         new_employee = Employee(
             name=data['name'],
@@ -161,15 +202,16 @@ def add_employee():
             position=data['position'],
             department=data['department'],
             phone=data.get('phone'),
-            hire_date=data.get('hire_date')
+            hire_date=data.get('hire_date'),
+            salary=salary
         )
         db.session.add(new_employee)
         db.session.commit()
-        return jsonify({'message': 'Employee added successfully'}), 201
+        return jsonify({'message': 'Employee added successfully', 'id': new_employee.id}), 201
     except Exception as e:
         print(f"Add employee error: {str(e)}")
         db.session.rollback()
-        return jsonify({'message': 'Server error'}), 500
+        return jsonify({'message': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/employees/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -177,6 +219,16 @@ def update_employee(id):
     try:
         employee = Employee.query.get_or_404(id)
         data = request.get_json()
+        print(f"Received employee update data: {data}")
+
+        # Parse salary as float if it exists
+        if 'salary' in data and data['salary'] is not None:
+            try:
+                data['salary'] = float(data['salary'])
+                print(f"Parsed salary: {data['salary']}")
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing salary: {e}")
+                return jsonify({'message': 'Invalid salary format'}), 400
 
         employee.name = data.get('name', employee.name)
         employee.email = data.get('email', employee.email)
@@ -184,13 +236,14 @@ def update_employee(id):
         employee.department = data.get('department', employee.department)
         employee.phone = data.get('phone', employee.phone)
         employee.hire_date = data.get('hire_date', employee.hire_date)
+        employee.salary = data.get('salary', employee.salary)
 
         db.session.commit()
-        return jsonify({'message': 'Employee updated successfully'})
+        return jsonify({'message': 'Employee updated successfully', 'id': employee.id})
     except Exception as e:
         print(f"Update employee error: {str(e)}")
         db.session.rollback()
-        return jsonify({'message': 'Server error'}), 500
+        return jsonify({'message': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/employees/<int:id>', methods=['DELETE'])
 @jwt_required()

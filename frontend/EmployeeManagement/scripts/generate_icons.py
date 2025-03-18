@@ -2,11 +2,10 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 
 # Colors from our theme
-PRIMARY_COLOR = "#00a19a"  # Teal/blue-green
-SECONDARY_COLOR = "#2c3e50"  # Dark blue/slate
+PRIMARY_COLOR = "#0D47A1"  # Deep blue from MG logo
+SECONDARY_COLOR = "#FF5722"  # Orange from MG logo
 BACKGROUND_COLOR = "#ffffff"  # White
-GRADIENT_TOP = "#00a19a"  # Teal
-GRADIENT_BOTTOM = "#006d68"  # Darker teal
+ORIGINAL_LOGO_COLOR = "#FF5722"  # Orange from MG logo
 
 # Get absolute paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -50,71 +49,74 @@ def get_system_font(size):
     
     return ImageFont.load_default()
 
-def create_icon(size):
-    # Create base image with gradient
-    image = create_gradient(size, hex_to_rgb(GRADIENT_TOP), hex_to_rgb(GRADIENT_BOTTOM))
+def create_mg_logo(size):
+    """Create the MG logo as seen in the uploaded image"""
+    # Create a new image with transparent background
+    image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     
-    # Calculate font sizes based on icon size
-    main_font_size = int(size * 0.35)  # Larger MG text
-    sub_font_size = int(size * 0.18)   # Smaller TECH text
+    # Draw the orange circle
+    circle_color = hex_to_rgb(ORIGINAL_LOGO_COLOR)
+    circle_padding = int(size * 0.05)  # 5% padding
+    circle_size = size - (2 * circle_padding)
     
-    # Get fonts
-    main_font = get_system_font(main_font_size)
-    sub_font = get_system_font(sub_font_size)
+    # Draw the circle
+    draw.ellipse(
+        [(circle_padding, circle_padding), 
+         (size - circle_padding, size - circle_padding)],
+        fill=circle_color
+    )
     
-    # Draw rounded rectangle for background
-    corner_radius = size * 0.2
+    # Calculate font size for 'mg' text
+    font_size = int(size * 0.5)  # 50% of the icon size
+    font = get_system_font(font_size)
     
-    # Calculate text positions for "MG"
-    text_mg = "MG"
-    mg_bbox = draw.textbbox((0, 0), text_mg, font=main_font)
-    mg_width = mg_bbox[2] - mg_bbox[0]
-    mg_height = mg_bbox[3] - mg_bbox[1]
+    # Draw 'mg' text in white
+    text = "mg"
+    text_bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
     
-    # Calculate text positions for "TECH"
-    text_tech = "TECH"
-    tech_bbox = draw.textbbox((0, 0), text_tech, font=sub_font)
-    tech_width = tech_bbox[2] - tech_bbox[0]
-    tech_height = tech_bbox[3] - tech_bbox[1]
+    # Position text in the center, slightly higher
+    x = (size - text_width) / 2
+    y = (size - text_height) / 2 - (size * 0.05)  # Slightly higher
     
-    # Position both texts with proper spacing
-    spacing = size * 0.02  # 2% of icon size for spacing
-    total_height = mg_height + tech_height + spacing
-    start_y = (size - total_height) / 2
+    # Draw the text
+    draw.text((x, y), text, font=font, fill="white")
     
-    # Draw "MG" text
-    x_mg = (size - mg_width) / 2
-    y_mg = start_y
-    # Add subtle shadow effect
-    shadow_offset = max(1, int(size * 0.01))
-    draw.text((x_mg + shadow_offset, y_mg + shadow_offset), text_mg, 
-              font=main_font, fill=(0, 0, 0, 100))
-    draw.text((x_mg, y_mg), text_mg, font=main_font, fill="white")
+    # Add the small dot in the top right
+    dot_size = int(size * 0.05)
+    dot_x = size - int(size * 0.25)  # 25% from right
+    dot_y = int(size * 0.25)  # 25% from top
+    draw.ellipse(
+        [(dot_x - dot_size/2, dot_y - dot_size/2),
+         (dot_x + dot_size/2, dot_y + dot_size/2)],
+        fill="white"
+    )
     
-    # Draw "TECH" text
-    x_tech = (size - tech_width) / 2
-    y_tech = y_mg + mg_height + spacing
-    draw.text((x_tech + shadow_offset, y_tech + shadow_offset), text_tech,
-              font=sub_font, fill=(0, 0, 0, 100))
-    draw.text((x_tech, y_tech), text_tech, font=sub_font, fill="white")
+    # Add the "crack" effect (simplified)
+    crack_width = int(size * 0.03)
+    crack_points = [
+        (size - int(size * 0.25), int(size * 0.25)),  # Start at the dot
+        (size - int(size * 0.15), int(size * 0.15)),  # Go toward edge
+        (size - int(size * 0.05), int(size * 0.05))   # End near edge
+    ]
     
-    # Add shine effect
-    shine_height = int(size * 0.4)
-    shine = Image.new('RGBA', (size, shine_height), (0, 0, 0, 0))
-    shine_draw = ImageDraw.Draw(shine)
+    # Draw the crack line
+    for i in range(len(crack_points) - 1):
+        draw.line(
+            [crack_points[i], crack_points[i+1]],
+            fill="white",
+            width=crack_width
+        )
     
-    # Create diagonal shine
-    for y in range(shine_height):
-        alpha = int(255 * (1 - y / shine_height) * 0.15)  # 15% max opacity
-        shine_draw.line([(0, y), (size, y)], fill=(255, 255, 255, alpha))
+    return image
+
+def create_icon(size):
+    # Create the MG logo
+    image = create_mg_logo(size)
     
-    # Rotate and position shine
-    rotated_shine = shine.rotate(45, expand=True)
-    shine_x = int((size - rotated_shine.width) / 2)
-    shine_y = int((size - rotated_shine.height) / 2)
-    image.paste(rotated_shine, (shine_x, shine_y), rotated_shine)
-    
+    # No need for additional effects as the logo is already complete
     return image
 
 def generate_all_icons():

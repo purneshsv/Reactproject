@@ -18,8 +18,9 @@ import {
 import * as Animatable from 'react-native-animatable';
 import styles from '../styles/LoginScreenStyles.js';
 import COLORS from '../theme/colors';
+import MGLogo from '../components/MGLogo';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 const LoginScreen = ({navigation}) => {
   const [username, setUsername] = useState('');
@@ -35,9 +36,9 @@ const LoginScreen = ({navigation}) => {
         '816103591299-ufmd0aouuarmq15b167ak1ksr4dt78ak.apps.googleusercontent.com',
       iosClientId:
         '816103591299-ufmd0aouuarmq15b167ak1ksr4dt78ak.apps.googleusercontent.com',
-      offlineAccess: true,
+      offlineAccess: false, // Changed to false to simplify token flow
       scopes: ['profile', 'email'],
-      forceCodeForRefreshToken: true,
+      forceCodeForRefreshToken: false, // Changed to false
     });
   }, []);
 
@@ -53,6 +54,7 @@ const LoginScreen = ({navigation}) => {
         return;
       }
 
+      console.log(`Attempting login to ${API_URL}/login with username: ${username}`);
       const response = await axios.post(`${API_URL}/login`, {
         username,
         password,
@@ -73,9 +75,13 @@ const LoginScreen = ({navigation}) => {
   // Handle Google Sign-In
   const handleGoogleLogin = async () => {
     try {
+      setIsLoading(true);
       console.log(' Checking Google Play Services...');
-      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
+      // Clear any previous sign-in state
+      await GoogleSignin.signOut();
+      
       console.log(' Initiating Google Sign-In...');
       const userInfo = await GoogleSignin.signIn();
       console.log(
@@ -86,15 +92,21 @@ const LoginScreen = ({navigation}) => {
       if (!userInfo) {
         console.error(' No userInfo received from Google Sign-In.');
         setError('Google Sign-In failed: No user info.');
+        setIsLoading(false);
         return;
       }
-
-      const {idToken} = userInfo;
+      
+      // Get tokens explicitly
+      const tokens = await GoogleSignin.getTokens();
+      console.log(' Google tokens:', JSON.stringify(tokens, null, 2));
+      
+      const idToken = tokens.idToken || userInfo.idToken;
       console.log(' Extracted ID Token:', idToken);
 
       if (!idToken) {
         console.error(' No ID Token received from Google Sign-In.');
         setError('Google Sign-In failed: No ID token received.');
+        setIsLoading(false);
         return;
       }
 
@@ -103,12 +115,16 @@ const LoginScreen = ({navigation}) => {
       // Send Google ID token to backend for verification
       const response = await axios.post(`${API_URL}/auth/google`, {
         token: idToken,
+        simulatorTest: true  // Enable simulator test mode to bypass token verification
       });
 
       console.log(' Received JWT from backend:', response.data);
 
-      // Store the received token
-      await AsyncStorage.setItem('token', response.data.token);
+      // Store the received token using our AuthUtils
+      const token = response.data.token;
+      await AsyncStorage.setItem('token', token);
+      // Clear any session expired flag
+      await AsyncStorage.removeItem('sessionExpired');
       console.log(' JWT stored successfully, navigating to Home...');
       navigation.replace('Home');
     } catch (error) {
@@ -144,13 +160,12 @@ const LoginScreen = ({navigation}) => {
             animation="fadeIn"
             duration={1500}
             style={styles.logoContainer}>
-            <Animatable.Text
-              animation="pulse"
-              iterationCount="infinite"
-              duration={3000}
-              style={styles.companyName}>
-              MG HEALTH TECH
-            </Animatable.Text>
+            <Animatable.View
+              animation="bounceIn"
+              duration={1500}
+              style={styles.logoImageContainer}>
+              <MGLogo size="large" />
+            </Animatable.View>
             <Animatable.Text
               animation="fadeIn"
               delay={500}

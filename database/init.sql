@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS admin (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(80) UNIQUE NOT NULL,
-    password VARCHAR(120) NOT NULL
+    password_hash VARCHAR(120) NOT NULL
 );
 
 -- Create Employee table
@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS employee (
     position VARCHAR(100) NOT NULL,
     department VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
-    hire_date DATE
+    hire_date DATE,
+    salary DECIMAL(10,2)
 );
 
 -- Insert default admin user (username: admin, password: admin123)
-INSERT INTO admin (username, password) 
+INSERT INTO admin (username, password_hash) 
 SELECT 'admin', 'admin123'
 WHERE NOT EXISTS (SELECT 1 FROM admin WHERE username = 'admin');
