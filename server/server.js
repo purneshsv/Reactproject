@@ -27,9 +27,33 @@ app.post("/login", async (req, res) => {
     const response = await axios.post(`${FLASK_API_URL}/login`, req.body);
     res.json(response.data);
   } catch (error) {
+    console.error("Login error:", error.message);
     res
       .status(error.response?.status || 500)
       .json(error.response?.data || { message: "Server error" });
+  }
+});
+
+// Google authentication route
+app.post("/auth/google", async (req, res) => {
+  try {
+    // Check if this is a simulator test
+    if (req.body.simulatorTest) {
+      console.log("Simulator testing mode detected, forwarding to Flask backend");
+    } else {
+      console.log("Regular Google Sign-In request received");
+    }
+    
+    // Forward the request to the Flask backend
+    const response = await axios.post(`${FLASK_API_URL}/auth/google`, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error("Google auth error:", error.message);
+    res
+      .status(error.response?.status || 500)
+      .json(
+        error.response?.data || { message: "Google authentication failed" }
+      );
   }
 });
 
@@ -41,6 +65,7 @@ app.get("/employees", async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
+    console.error("Get employees error:", error.message);
     res
       .status(error.response?.status || 500)
       .json(error.response?.data || { message: "Server error" });
@@ -55,6 +80,7 @@ app.post("/employees", async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
+    console.error("Add employee error:", error.message);
     res
       .status(error.response?.status || 500)
       .json(error.response?.data || { message: "Server error" });
@@ -73,6 +99,7 @@ app.put("/employees/:id", async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
+    console.error("Update employee error:", error.message);
     res
       .status(error.response?.status || 500)
       .json(error.response?.data || { message: "Server error" });
@@ -90,6 +117,7 @@ app.delete("/employees/:id", async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
+    console.error("Delete employee error:", error.message);
     res
       .status(error.response?.status || 500)
       .json(error.response?.data || { message: "Server error" });
