@@ -1,14 +1,14 @@
 import React, {useState, useEffect} from 'react';
 import {
   View,
-  StyleSheet,
   TouchableOpacity,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Text,
 } from 'react-native';
-import {Input, Button, Text, Icon} from 'react-native-elements';
+import {Input, Icon, Button} from 'react-native-elements';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import {
@@ -16,6 +16,7 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import * as Animatable from 'react-native-animatable';
+import styles from '../styles/LoginScreenStyles.js';
 import COLORS from '../theme/colors';
 
 const API_URL = 'http://localhost:3001';
@@ -45,13 +46,13 @@ const LoginScreen = ({navigation}) => {
     try {
       setIsLoading(true);
       setError('');
-      
+
       if (!username || !password) {
         setError('Please enter both username and password');
         setIsLoading(false);
         return;
       }
-      
+
       const response = await axios.post(`${API_URL}/login`, {
         username,
         password,
@@ -132,48 +133,52 @@ const LoginScreen = ({navigation}) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      
+
       <View style={styles.background} />
-      
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidView}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <Animatable.View 
-            animation="fadeIn" 
-            duration={1500} 
+          <Animatable.View
+            animation="fadeIn"
+            duration={1500}
             style={styles.logoContainer}>
-            <Animatable.Text 
-              animation="pulse" 
-              iterationCount="infinite" 
+            <Animatable.Text
+              animation="pulse"
+              iterationCount="infinite"
               duration={3000}
               style={styles.companyName}>
               MG HEALTH TECH
             </Animatable.Text>
-            <Animatable.Text 
-              animation="fadeIn" 
+            <Animatable.Text
+              animation="fadeIn"
               delay={500}
               style={styles.tagline}>
               Employee Management System
             </Animatable.Text>
           </Animatable.View>
 
-          <Animatable.View 
+          <Animatable.View
             animation="fadeInUpBig"
             duration={1000}
             delay={300}
             style={styles.formContainer}>
-            
             <Text style={styles.welcomeText}>Welcome</Text>
-            
-            <Animatable.View 
-              animation="fadeInLeft" 
+
+            <Animatable.View
+              animation="fadeInLeft"
               delay={600}
               style={styles.inputContainer}>
               <Input
                 placeholder="Username"
                 leftIcon={
-                  <Icon name="person" type="ionicon" color={COLORS.textLight} size={20} />
+                  <Icon
+                    name="person"
+                    type="ionicon"
+                    color={COLORS.textLight}
+                    size={20}
+                  />
                 }
                 onChangeText={setUsername}
                 value={username}
@@ -183,23 +188,28 @@ const LoginScreen = ({navigation}) => {
                 autoCapitalize="none"
               />
             </Animatable.View>
-            
-            <Animatable.View 
-              animation="fadeInLeft" 
+
+            <Animatable.View
+              animation="fadeInLeft"
               delay={800}
               style={styles.inputContainer}>
               <Input
                 placeholder="Password"
                 leftIcon={
-                  <Icon name="lock-closed" type="ionicon" color={COLORS.textLight} size={20} />
+                  <Icon
+                    name="lock-closed"
+                    type="ionicon"
+                    color={COLORS.textLight}
+                    size={20}
+                  />
                 }
                 rightIcon={
                   <TouchableOpacity onPress={toggleSecureTextEntry}>
-                    <Icon 
-                      name={secureTextEntry ? 'eye-off' : 'eye'} 
-                      type="ionicon" 
-                      color={COLORS.textLight} 
-                      size={20} 
+                    <Icon
+                      name={secureTextEntry ? 'eye-off' : 'eye'}
+                      type="ionicon"
+                      color={COLORS.textLight}
+                      size={20}
                     />
                   </TouchableOpacity>
                 }
@@ -214,15 +224,13 @@ const LoginScreen = ({navigation}) => {
             </Animatable.View>
 
             {error ? (
-              <Animatable.Text 
-                animation="shake" 
-                style={styles.error}>
+              <Animatable.Text animation="shake" style={styles.error}>
                 {error}
               </Animatable.Text>
             ) : null}
 
-            <Animatable.View 
-              animation="fadeInUp" 
+            <Animatable.View
+              animation="fadeInUp"
               delay={1000}
               style={styles.buttonContainer}>
               <TouchableOpacity
@@ -261,136 +269,5 @@ const LoginScreen = ({navigation}) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  background: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: COLORS.background,
-  },
-  keyboardAvoidView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  companyName: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    letterSpacing: 2,
-    textShadowColor: 'rgba(0, 161, 154, 0.3)',
-    textShadowOffset: {width: 0, height: 0},
-    textShadowRadius: 10,
-  },
-  tagline: {
-    fontSize: 16,
-    color: COLORS.secondary,
-    marginTop: 5,
-  },
-  formContainer: {
-    backgroundColor: COLORS.card,
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 10,
-  },
-  inputField: {
-    backgroundColor: COLORS.backgroundDark,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    borderBottomWidth: 0,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  inputText: {
-    color: COLORS.text,
-    fontSize: 16,
-    paddingLeft: 5,
-  },
-  buttonContainer: {
-    marginTop: 10,
-  },
-  loginButton: {
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    marginTop: 10,
-  },
-  buttonText: {
-    color: COLORS.textWhite,
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.divider,
-  },
-  dividerText: {
-    color: COLORS.textLight,
-    paddingHorizontal: 10,
-    fontSize: 14,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.secondary,
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  googleIcon: {
-    marginRight: 10,
-  },
-  googleButtonText: {
-    color: COLORS.textWhite,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  error: {
-    color: COLORS.error,
-    textAlign: 'center',
-    marginTop: 5,
-    marginBottom: 10,
-  },
-});
 
 export default LoginScreen;
