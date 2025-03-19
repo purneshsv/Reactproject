@@ -1,1 +1,1 @@
-This is  App created foe Employee Management System
+This is  App created for Employee Management System
